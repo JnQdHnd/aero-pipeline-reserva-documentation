@@ -191,7 +191,7 @@ Y luego define tres posibles acciones 👇
 
 #### 
 
-#### <a name="paso4">4. Creación y calendarización del Trabajo que ejecutará el Procedimiento Almacenado</a>
+### <a name="paso4">4. Creación y calendarización del Trabajo que ejecutará el Procedimiento Almacenado</a>
 
 Como hemos visto en el paso previo, hemos creado un procedimiento para poblar la tabla Reserva_Cambios con las modificaciones que se vayan produciendo en la tabla principal. En este punto, es importante aclarar que dicho Procedimiento Almacenado no se ejecutará solo. Podríamos ejecutarlo manualmente, pero como el objetivo del proyecto es automatizar estos procesos, utilizaremos las herramientas que SQL Server nos provee para este tipo de situaciones. Está es SQL Agent y los Trabajos Programados (Jobs).
 
