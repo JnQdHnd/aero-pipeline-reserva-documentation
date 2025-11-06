@@ -8,7 +8,7 @@ Para esto se deberan llevar a cabo una serie de paso:
 
 1. [**Habilitación de Change Tracking** ](#paso1)
 
-2. [**Creación de la **tabla para el registro de cambios**](#paso2)
+2. [**Creación de la tabla para el registro de cambios**](#paso2)
 
 3. [**Creación del Procedimiento Almacenado**](#paso3)
 
