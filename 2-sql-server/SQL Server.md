@@ -1,25 +1,26 @@
-## **SQL Server**
+# **SQL Server**
 
 En el desarrollo del Pipeline que servirá para migrar datos de SQL Server a la Base de Datos unificada PostgrSQL, es necesaria una preparación de los datos en la fuente de origen (SQL Server).
 
+
+
 Para esto se deberan llevar a cabo una serie de paso:
 
-1. [Habilitación de **Change Tracking** en:](#paso1)
-   a) En la **Base de Datos** que contiene las Tablas con los datos que deseamos migrar;
+1. [**Habilitación de Change Tracking** ](#paso1)
+
+2. [**Creación de la **tabla para el registro de cambios**](#paso2)
+
+3. [**Creación del Procedimiento Almacenado**](#paso3)
+
+4. [**Creación y calendarización con SQL Agent del Trabajo que ejecutará el Procedimiento Almacenado**](#paso4)
    
-   b) En cada una de las **Tablas**.
+   
 
-2. Creación de la **tabla para el registro de cambios** (Ej. Tabla_Cambios).
-
-3. Creación del **Store Procedure** que se encargará de capturar los cambios de la metadata generada por el Change Tracking y la insertará en la Tabla_Cambios.
-
-4. Creación con SQL Agent de un **Trabajo Programado** que se encargará de ejecurar el Store Procedure regularmente para mantener el registro de cambios actualizado.
-
-###### *Dejaremos a continuación el proceso para habilitar el Pipeline de la tabla Reserva. El mismo proceso se deberá seguir para las demás tablas que se quieran incluir en el Pipeline.*
+###### *Utilizaremos como ejemplo a continuación, el proceso para habilitar el Pipeline de la tabla Reserva. El mismo proceso se deberá seguir para las demás tablas que se quieran incluir en el Pipeline.*
 
 
 
-#### <a name="paso1">1. Habilitar Change Tracking</a>
+### <a name="paso1">1. Habilitar Change Tracking</a>
 
 Dentro del SQL Server, se deberá ejecutar la siguiente consulta SQL. Hay que hacerlo dentro de la base de datos en la que se encuentra/n las tablas que queremos incluir en el Pipeline. Dado que no tenemos definido en este punto la base de datos exacta en la que trabajaremos, para el ejemplo definiremos como nombre de la misma BaseDeDatos.
 
@@ -35,7 +36,7 @@ WITH (TRACK_COLUMNS_UPDATED = ON);
 
 #### 
 
-#### 2. Crear tabla de registro de cambios
+### <a name="paso2">2. Crear tabla de registro de cambios</a>
 
 Al habilitar Change Tracking, SQL Server deja un registro de los Insert, Delete y Update que se producen en las tablas en las que lo hayamos habilitado. Ese registro es temporal y se guarda como metadata. Para poder utilizarlo en el pipeline, debemos extraer esta información y registrarla en una nueva tabla de registro de cambio.
 
@@ -49,7 +50,9 @@ CREATE TABLE [BaseDeDatos].dbo.Reserva_Cambios (
 );
 ```
 
-#### 3. Crear el Procedimiento Almacenado (Store Procedure)
+### 
+
+### <a name="paso3">3. Crear el Procedimiento Almacenado (Store Procedure)</a>
 
 Para que los datos registrados por el Change Tracking en la metadata se guarden definitivamente dentro de la tabla recién creada Reserva_Cambios, es necesario llevar a cabo la creación de un Procedimiento Almacenado que luego será ejecutado periódicamente por el SQL Agent.
 
@@ -186,7 +189,9 @@ Y luego define tres posibles acciones 👇
 🔹 Registra que el sistema ya procesó todos los cambios **hasta la nueva versión actual**.  
 🔹 Esto asegura que la próxima ejecución sólo capture los nuevos cambios.
 
-#### 4. Creación y calendarización del Trabajo que ejecutará el Procedimiento Almacenado
+#### 
+
+#### <a name="paso4">4. Creación y calendarización del Trabajo que ejecutará el Procedimiento Almacenado</a>
 
 Como hemos visto en el paso previo, hemos creado un procedimiento para poblar la tabla Reserva_Cambios con las modificaciones que se vayan produciendo en la tabla principal. En este punto, es importante aclarar que dicho Procedimiento Almacenado no se ejecutará solo. Podríamos ejecutarlo manualmente, pero como el objetivo del proyecto es automatizar estos procesos, utilizaremos las herramientas que SQL Server nos provee para este tipo de situaciones. Está es SQL Agent y los Trabajos Programados (Jobs).
 
@@ -239,7 +244,3 @@ Para evitar que el job falle sin que lo notes:
    - Activá “E-mail” → seleccioná `Alerta_DataSync`.
    
    - En condición: “When the job fails”.
-
-## <a name="chapter-3"></a>
-
-Content for chapter one.
