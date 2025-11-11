@@ -2,8 +2,6 @@
 
 En el desarrollo del Pipeline que servirá para migrar datos de SQL Server a la Base de Datos unificada PostgrSQL, es necesaria una preparación de los datos en la fuente de origen (SQL Server).
 
-
-
 Para esto se deberan llevar a cabo una serie de paso:
 
 1. [**Habilitación de Change Tracking** ](#paso1)
@@ -13,12 +11,10 @@ Para esto se deberan llevar a cabo una serie de paso:
 3. [**Creación del Procedimiento Almacenado**](#paso3)
 
 4. [**Creación y calendarización con SQL Agent del Trabajo que ejecutará el Procedimiento Almacenado**](#paso4)
-   
-   
+
+5. [**Creación de la vista que integra la tabla Reservas con la tabla Reserva_Cambios**](#paso5)
 
 ###### *Utilizaremos como ejemplo a continuación, el proceso para habilitar el Pipeline de la tabla Reserva. El mismo proceso se deberá seguir para las demás tablas que se quieran incluir en el Pipeline.*
-
-
 
 ### <a name="paso1">1. Habilitar Change Tracking</a>
 
@@ -56,7 +52,17 @@ CREATE TABLE [BaseDeDatos].dbo.Reserva_Cambios (
 
 Para que los datos registrados por el Change Tracking en la metadata se guarden definitivamente dentro de la tabla recién creada Reserva_Cambios, es necesario llevar a cabo la creación de un Procedimiento Almacenado que luego será ejecutado periódicamente por el SQL Agent.
 
- Para ello, debemos ejecutar la siguiente consulta SQL que creará el procedimiento sp_RegistrarCambiosReserva:
+El primer paso será crear una tabla donde se irá guardando la última version consultada del Change Tracking:
+
+```SQL Server
+CREATE TABLE [BaseDeDatos].dbo.Reserva_ChangeVersion (
+	ultima_version bigint NULL
+);
+```
+
+
+
+Para ello, debemos ejecutar la siguiente consulta SQL que creará el procedimiento sp_RegistrarCambiosReserva:
 
 ```SQL
 CREATE   PROCEDURE dbo.sp_RegistrarCambiosReserva
@@ -244,3 +250,25 @@ Para evitar que el job falle sin que lo notes:
    - Activá “E-mail” → seleccioná `Alerta_DataSync`.
    
    - En condición: “When the job fails”.
+
+
+
+### <a name="paso5">5. Creación de la Vista que integra Reservas con Reserva_Cambios</a>
+
+El último paso será crear una vista para poder tener en una misma vista-tabla los datos de reserva, con los datos de timestamp y motivo del cambio que necesitaremos luego en el Pipeline para identificar datos actualizados y eliminados y registrarlos debidamente al final del Pipeline.
+
+Para ello ejecutaremos el siguiente script:
+
+```SQL Server
+CREATE VIEW dbo.vw_Reservas_Para_Airbyte AS
+SELECT 
+    R.*,
+    C.tipo_cambio,
+    C.fecha_cambio
+FROM [BaseDeDatos].dbo.Reserva AS R
+LEFT JOIN [BaseDeDatos].dbo.Reserva_Cambios AS C
+    ON R.id_res = C.id_res
+    AND C.tipo_cambio IN ('INSERT', 'UPDATE');
+```
+
+Una vez realizados estos pasos, ya tenemos listas las dos fuentes de datos que enviaremos a través de Airbyte a PostgreSQL: vw_Reservas_Para_Airbyte y Reserva_Cambios.
