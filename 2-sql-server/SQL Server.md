@@ -52,15 +52,23 @@ CREATE TABLE [BaseDeDatos].dbo.Reserva_Cambios (
 
 Para que los datos registrados por el Change Tracking en la metadata se guarden definitivamente dentro de la tabla recién creada Reserva_Cambios, es necesario llevar a cabo la creación de un Procedimiento Almacenado que luego será ejecutado periódicamente por el SQL Agent.
 
-El primer paso será crear una tabla donde se irá guardando la última version consultada del Change Tracking:
+El primer paso será crear una tabla donde se irá guardando la última versión consultada del Change Tracking:
 
-```SQL Server
+```SQL
 CREATE TABLE [BaseDeDatos].dbo.Reserva_ChangeVersion (
-	ultima_version bigint NULL
+    ultima_version bigint NULL
 );
 ```
 
+E inicializar la tabla con valor cero:
 
+```SQL Server
+INSERT INTO [BaseDeDatos].dbo.Reserva_ChangeVersion
+(ultima_version)
+VALUES(0);
+```
+
+Luego procedemos a crear el Store Procedure propiamente dicho.
 
 Para ello, debemos ejecutar la siguiente consulta SQL que creará el procedimiento sp_RegistrarCambiosReserva:
 
@@ -195,7 +203,19 @@ Y luego define tres posibles acciones 👇
 🔹 Registra que el sistema ya procesó todos los cambios **hasta la nueva versión actual**.  
 🔹 Esto asegura que la próxima ejecución sólo capture los nuevos cambios.
 
-#### 
+
+
+Advertencia: Si se está intentando crear el SP desde DBeaver, es necesario hacerlo entre bloques BEGIN/END explícitos, es decir, el script dejado arriba se debe utilizar entre:
+
+```SQL Server
+BEGIN
+    EXEC('
+        -- Aquí va el código SQL Server dejado arriba --
+    ');
+END;
+```
+
+
 
 ### <a name="paso4">4. Creación y calendarización del Trabajo que ejecutará el Procedimiento Almacenado</a>
 
@@ -251,15 +271,13 @@ Para evitar que el job falle sin que lo notes:
    
    - En condición: “When the job fails”.
 
-
-
 ### <a name="paso5">5. Creación de la Vista que integra Reservas con Reserva_Cambios</a>
 
 El último paso será crear una vista para poder tener en una misma vista-tabla los datos de reserva, con los datos de timestamp y motivo del cambio que necesitaremos luego en el Pipeline para identificar datos actualizados y eliminados y registrarlos debidamente al final del Pipeline.
 
 Para ello ejecutaremos el siguiente script:
 
-```SQL Server
+```SQL
 CREATE VIEW dbo.vw_Reservas_Para_Airbyte AS
 SELECT 
     R.*,
