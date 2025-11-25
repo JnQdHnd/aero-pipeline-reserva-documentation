@@ -2,7 +2,7 @@
 
 En el desarrollo del Pipeline que servirá para migrar datos de SQL Server a la Base de Datos unificada PostgrSQL, es necesaria una preparación de los datos en la fuente de origen (SQL Server).
 
-Para esto se deberan llevar a cabo una serie de paso:
+Para esto se deberán llevar a cabo una serie de pasos:
 
 1. [**Habilitación de Change Tracking** ](#paso1)
 
@@ -13,6 +13,8 @@ Para esto se deberan llevar a cabo una serie de paso:
 4. [**Creación y calendarización con SQL Agent del Trabajo que ejecutará el Procedimiento Almacenado**](#paso4)
 
 5. [**Creación de la vista que integra la tabla Reservas con la tabla Reserva_Cambios**](#paso5)
+
+6. [**OPCIONAL: Incorporación de controles (Latencia y filas procesadas)**](#paso6)
 
 ###### *Utilizaremos como ejemplo a continuación, el proceso para habilitar el Pipeline de la tabla Reserva. El mismo proceso se deberá seguir para las demás tablas que se quieran incluir en el Pipeline.*
 
@@ -62,13 +64,15 @@ CREATE TABLE [BaseDeDatos].dbo.Reserva_ChangeVersion (
 
 E inicializar la tabla con valor cero:
 
-```SQL Server
+```SQL
 INSERT INTO [BaseDeDatos].dbo.Reserva_ChangeVersion
 (ultima_version)
 VALUES(0);
 ```
 
 Luego procedemos a crear el Store Procedure propiamente dicho.
+
+> **Aclaración**: Este Store Procedure **no incluye el control de latencia**. Si se quisiera implementar dicha versión **ver el [punto 6](#paso6b)**.
 
 Para ello, debemos ejecutar la siguiente consulta SQL que creará el procedimiento sp_RegistrarCambiosReserva:
 
@@ -205,17 +209,15 @@ Y luego define tres posibles acciones 👇
 
 
 
-Advertencia: Si se está intentando crear el SP desde DBeaver, es necesario hacerlo entre bloques BEGIN/END explícitos, es decir, el script dejado arriba se debe utilizar entre:
+> **Advertencia**: Si se está intentando crear el SP desde **DBeaver**, es necesario hacerlo entre bloques BEGIN/END explícitos, es decir, el script dejado arriba se debe utilizar entre:
 
-```SQL Server
+```SQL
 BEGIN
     EXEC('
         -- Aquí va el código SQL Server dejado arriba --
     ');
 END;
 ```
-
-
 
 ### <a name="paso4">4. Creación y calendarización del Trabajo que ejecutará el Procedimiento Almacenado</a>
 
@@ -290,3 +292,107 @@ LEFT JOIN [BaseDeDatos].dbo.Reserva_Cambios AS C
 ```
 
 Una vez realizados estos pasos, ya tenemos listas las dos fuentes de datos que enviaremos a través de Airbyte a PostgreSQL: vw_Reservas_Para_Airbyte y Reserva_Cambios.
+
+### <a name="paso6">6. OPCIONAL: Incorporación de controles (Latencia y filas procesadas)</a>
+
+Si se quisieran incluir los controles de latencia (duración de la ejecución del proceso) y filas procesadas, se deben seguir los siguientes pasos:
+
+Crear la tabla de registro de logs:
+
+```SQL Server
+CREATE TABLE dbo.Log_RegistrarCambiosReserva
+(
+    id_log INT IDENTITY(1,1) PRIMARY KEY,
+    fecha_inicio DATETIME2 NOT NULL,
+    fecha_fin DATETIME2 NOT NULL,
+    duracion_ms BIGINT NOT NULL,
+    filas_procesadas INT NOT NULL,
+    version_inicial BIGINT NOT NULL,
+    version_final BIGINT NOT NULL,
+    nombre_sp SYSNAME NOT NULL
+);
+```
+
+<a name="paso6b">Y luego modificar o crear (Si se hubiese decidido crear el procedimiento con los logs desde el comienzo) el Store Procedure para que realice el registro de los tiempos de ejecución y las filas procesadas:</a>
+
+```SQL Server
+CREATE PROCEDURE dbo.sp_RegistrarCambiosReservaTestConLogs
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE 
+        @inicio DATETIME2 = SYSDATETIME(),
+        @fin DATETIME2,
+        @filas INT,
+        @ultima_version BIGINT,
+        @nueva_version BIGINT,
+        @duracion_ms BIGINT;
+
+    -- Obtener versión inicial
+    SELECT @ultima_version = ultima_version 
+    FROM dbo.Reserva_Test_ChangeVersion;
+
+    -- Nueva versión
+    SET @nueva_version = CHANGE_TRACKING_CURRENT_VERSION();
+
+    -- Contar filas
+    SELECT @filas = COUNT(*)
+    FROM CHANGETABLE(CHANGES dbo.Reserva_Test, @ultima_version) AS CT;
+
+    ---------------------------------------------------------
+    -- MERGE
+    ---------------------------------------------------------
+    MERGE dbo.Reserva_Test_Cambios AS T
+    USING (
+        SELECT 
+            CT.id_res,
+            CASE 
+                WHEN CT.SYS_CHANGE_OPERATION = ''I'' THEN ''INSERT''
+                WHEN CT.SYS_CHANGE_OPERATION = ''U'' THEN ''UPDATE''
+                WHEN CT.SYS_CHANGE_OPERATION = ''D'' THEN ''DELETE''
+            END AS tipo_cambio,
+            GETDATE() AS fecha_cambio
+        FROM CHANGETABLE(CHANGES dbo.Reserva_Test, @ultima_version) AS CT
+    ) AS S (id_res, tipo_cambio, fecha_cambio)
+    ON T.id_res = S.id_res
+    WHEN MATCHED THEN 
+        UPDATE SET 
+            T.tipo_cambio = S.tipo_cambio,
+            T.fecha_cambio = S.fecha_cambio
+    WHEN NOT MATCHED THEN
+        INSERT (id_res, tipo_cambio, fecha_cambio)
+        VALUES (S.id_res, S.tipo_cambio, S.fecha_cambio);
+
+    -- Actualizar versión procesada
+    UPDATE dbo.Reserva_Test_ChangeVersion
+    SET ultima_version = @nueva_version;
+
+    ---------------------------------------------------------
+    -- Log
+    ---------------------------------------------------------
+    SET @fin = SYSDATETIME();
+    SET @duracion_ms = DATEDIFF(ms, @inicio, @fin);
+
+    INSERT INTO dbo.Log_RegistrarCambiosReservaTest
+    (
+        fecha_inicio,
+        fecha_fin,
+        duracion_ms,
+        filas_procesadas,
+        version_inicial,
+        version_final,
+        nombre_sp
+    )
+    VALUES
+    (
+        @inicio,
+        @fin,
+        @duracion_ms,
+        @filas,
+        @ultima_version,
+        @nueva_version,
+        ''sp_RegistrarCambiosReservaTestConLogs''
+    );
+END;
+```
