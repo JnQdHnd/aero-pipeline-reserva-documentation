@@ -207,8 +207,6 @@ Y luego define tres posibles acciones 👇
 🔹 Registra que el sistema ya procesó todos los cambios **hasta la nueva versión actual**.  
 🔹 Esto asegura que la próxima ejecución sólo capture los nuevos cambios.
 
-
-
 > **Advertencia**: Si se está intentando crear el SP desde **DBeaver**, es necesario hacerlo entre bloques BEGIN/END explícitos, es decir, el script dejado arriba se debe utilizar entre:
 
 ```SQL
@@ -299,7 +297,7 @@ Si se quisieran incluir los controles de latencia (duración de la ejecución de
 
 Crear la tabla de registro de logs:
 
-```SQL Server
+```SQL
 CREATE TABLE dbo.Log_RegistrarCambiosReserva
 (
     id_log INT IDENTITY(1,1) PRIMARY KEY,
@@ -315,7 +313,7 @@ CREATE TABLE dbo.Log_RegistrarCambiosReserva
 
 <a name="paso6b">Y luego modificar o crear (Si se hubiese decidido crear el procedimiento con los logs desde el comienzo) el Store Procedure para que realice el registro de los tiempos de ejecución y las filas procesadas:</a>
 
-```SQL Server
+```SQL
 CREATE PROCEDURE dbo.sp_RegistrarCambiosReservaTestConLogs
 AS
 BEGIN
