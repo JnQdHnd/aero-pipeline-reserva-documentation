@@ -18,7 +18,7 @@ Pasaremos a continuación a describir lo necesario para realizar ambos paneles:
 
 Como primer dato, es importante contemplar que para realizar este panel de control, ser necesario tener realizado el  del documento SQL Server de este mismo manual. 
 
-[Punto 6](../2-sql-server/SQL Server.md)
+[Punto 6](#paso6)
 
 Crear tabla **pipeline_status_log**:
 
