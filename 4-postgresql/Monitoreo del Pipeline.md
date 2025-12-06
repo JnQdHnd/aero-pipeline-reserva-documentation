@@ -1,4 +1,24 @@
-## Monitoreo del Pipeline
+# Monitoreo del Pipeline
+
+Documentación provisional:
+
+## 1. Monitoreo mediante Tableau
+
+Dado que Tableau es la herramienta de uso final del pipeline y que la misma se utiliza en el cotidiano, consideramos una buena idea realizar desde allí mismo el monitoreo, haciéndolo cómodo y de fácil acceso e interpretación.
+
+Para llevar adelante el monitoreo en Tableau debemos realizar dos conexiones a bases de datos:
+
+1. Conexión a base de datos de SQL Server (Origen del Pipeline).
+
+2. Conexión a base de datos de PostgreSQL (Destino del Pipeline).
+
+Pasaremos a continuación a describir lo necesario para realizar ambos paneles:
+
+### 1.1 Auditoria en SQL Server
+
+Como primer dato, es importante contemplar que para realizar este panel de control, ser necesario tener realizado el [Punto 6](../2-sql-server/SQL Server.md#paso6) del documento SQL Server de este mismo manual. 
+
+
 
 Crear tabla **pipeline_status_log**:
 
