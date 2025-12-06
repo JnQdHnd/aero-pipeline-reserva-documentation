@@ -16,9 +16,9 @@ Pasaremos a continuación a describir lo necesario para realizar ambos paneles:
 
 ### 1.1 Auditoria en SQL Server
 
-Como primer dato, es importante contemplar que para realizar este panel de control, ser necesario tener realizado el [Punto 6](../2-sql-server/SQL Server.md#paso6) del documento SQL Server de este mismo manual. 
+Como primer dato, es importante contemplar que para realizar este panel de control, ser necesario tener realizado el  del documento SQL Server de este mismo manual. 
 
-
+[Punto 6](../2-sql-server/SQL Server.md#paso6)
 
 Crear tabla **pipeline_status_log**:
 
