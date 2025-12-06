@@ -16,6 +16,8 @@ Para esto se deberán llevar a cabo una serie de pasos:
 
 6. [**OPCIONAL: Incorporación de controles (Latencia y filas procesadas)**](#paso6)
 
+7. [**ADVERTENCIAS: Particularidades a tener en cuenta**](#paso7)
+
 ###### *Utilizaremos como ejemplo a continuación, el proceso para habilitar el Pipeline de la tabla Reserva. El mismo proceso se deberá seguir para las demás tablas que se quieran incluir en el Pipeline.*
 
 ### <a name="paso1">1. Habilitar Change Tracking</a>
@@ -23,16 +25,16 @@ Para esto se deberán llevar a cabo una serie de pasos:
 Dentro del SQL Server, se deberá ejecutar la siguiente consulta SQL. Hay que hacerlo dentro de la base de datos en la que se encuentra/n las tablas que queremos incluir en el Pipeline. Dado que no tenemos definido en este punto la base de datos exacta en la que trabajaremos, para el ejemplo definiremos como nombre de la misma BaseDeDatos.
 
 ```SQL
-ALTER DATABASE BaseDeDatos -- Reemplazar <BaseDeDatos> por el nombre de la base de datos
+ALTER DATABASE BaseDeDatos 
+-- Reemplazar <BaseDeDatos> por el nombre de la base de datos
 SET CHANGE_TRACKING = ON
 (CHANGE_RETENTION = 7 DAYS, AUTO_CLEANUP = ON);
-
-ALTER TABLE dbo.Reserva -- Indicar el nombre y la ubicación de la Tabla con la que se va a trabajar
+ALTER TABLE dbo.Reserva 
+-- Indicar el nombre y la ubicación de la Tabla con la que se 
+-- va a trabajar
 ENABLE CHANGE_TRACKING
-WITH (TRACK_COLUMNS_UPDATED = ON);
+WITH (TRACK_COLUMNS_UPDATED = ON); 
 ```
-
-#### 
 
 ### <a name="paso2">2. Crear tabla de registro de cambios</a>
 
@@ -48,7 +50,7 @@ CREATE TABLE [BaseDeDatos].dbo.Reserva_Cambios (
 );
 ```
 
-### 
+**¡IMPORTANTE!**: Adaptar la estructura de la tabla de registro de cambios a los datos de la tabla principal. Ver el punto [ADVERTENCIAS: Particularidades a tener en cuenta.](#paso7)
 
 ### <a name="paso3">3. Crear el Procedimiento Almacenado (Store Procedure)</a>
 
@@ -81,12 +83,9 @@ CREATE   PROCEDURE dbo.sp_RegistrarCambiosReserva
 AS
 BEGIN
     SET NOCOUNT ON;
-
     DECLARE @ultima_version BIGINT;
     SELECT @ultima_version = ultima_version FROM dbo.Reserva_ChangeVersion;
-
     DECLARE @nueva_version BIGINT = CHANGE_TRACKING_CURRENT_VERSION();
-
     MERGE dbo.Reserva_Cambios AS T
     USING (
         SELECT 
@@ -107,11 +106,12 @@ BEGIN
     WHEN NOT MATCHED THEN
         INSERT (id_res, tipo_cambio, fecha_cambio)
         VALUES (S.id_res, S.tipo_cambio, S.fecha_cambio);
-
     UPDATE dbo.Reserva_ChangeVersion
     SET ultima_version = @nueva_version;
 END;
 ```
+
+**¡IMPORTANTE!**: Adaptar la estructura de la tabla de registro de cambios a los datos de la tabla principal. Ver el punto [ADVERTENCIAS: Particularidades a tener en cuenta.](#paso7)
 
 ##### ¿Qué hace exactamente esta consulta?:
 
@@ -289,7 +289,110 @@ LEFT JOIN [BaseDeDatos].dbo.Reserva_Cambios AS C
     AND C.tipo_cambio IN ('INSERT', 'UPDATE');
 ```
 
+**¡IMPORTANTE!**: Adaptar la estructura de la tabla de registro de cambios a los datos de la tabla principal. Ver el punto [ADVERTENCIAS: Particularidades a tener en cuenta.](#paso7)
+
 Una vez realizados estos pasos, ya tenemos listas las dos fuentes de datos que enviaremos a través de Airbyte a PostgreSQL: vw_Reservas_Para_Airbyte y Reserva_Cambios.
+
+### <a name="paso5_1">5.1. Creación de la Vista que integra Reservas con Reserva_Cambios + Soft Delete</a>
+
+Si se desea preparar la tabla en origen con registro de soft delete, la vista se deberá realizar de la siguiente forma:
+
+```SQL
+CREATE VIEW dbo.vw_Reserva_Test_Con_Soft_Delete
+AS
+WITH UltimoCambio AS
+(
+    SELECT
+        id_res,
+        tipo_cambio,
+        fecha_cambio,
+        ROW_NUMBER() OVER (
+            PARTITION BY id_res
+            ORDER BY fecha_cambio DESC
+        ) AS rn
+    FROM BASE_CT.dbo.Reserva_Test_Cambios
+),
+CambiosFiltrados AS
+(
+    SELECT
+        id_res,
+        tipo_cambio,
+        fecha_cambio
+    FROM UltimoCambio
+    WHERE rn = 1
+)
+SELECT
+    COALESCE(R.id_res, C.id_res) AS id_res,
+    -- 🔹 columnas de Reserva_Test
+    R.id_cli,
+    R.id_usu,
+    R.sucursal,
+    R.bruto,
+    R.neto,
+    R.fec_sal,
+    R.cie_res,
+    R.cie_cli,
+    R.cie_ope,
+    R.comis,
+    R.er,
+    R.num_pax,
+    R.fec_ape,
+    R.fec_com,
+    R.ai,
+    R.obse,
+    R.nor_dev,
+    R.id_mov,
+    R.CIE_FAC,
+    R.id_mov_com,
+    R.iva_ven,
+    R.gasto,
+    R.comision,
+    R.NOINSCRIPTO,
+    R.detalle_viaje,
+    R.cie_ope2,
+    R.reserva_adm,
+    R.fecha_cierre,
+    R.brutous,
+    R.netous,
+    R.gastous,
+    R.comisionus,
+    R.detalle_cliente,
+    R.cotizacion,
+    R.iva_venus,
+    R.id_depto,
+    R.fecha_regreso,
+    R.id_pro,
+    R.impuestos,
+    R.impuestosus,
+    R.fecha_vto,
+    R.id_usu_cierre,
+    R.id_usu_apertura,
+    R.comis2,
+    R.id_operes,
+    R.ID_USU2,
+    -- 🔹 metadata de cambios
+    C.tipo_cambio  AS ultimo_tipo_cambio,
+    C.fecha_cambio AS update_at,
+
+    -- 🔹 soft delete
+    CASE
+        WHEN C.tipo_cambio = 'DELETE' THEN CAST(1 AS bit)
+        ELSE CAST(0 AS bit)
+    END AS is_deleted,
+
+    -- 🔹 origen del registro
+    CASE
+        WHEN R.id_res IS NOT NULL THEN 'EXISTENTE'
+        WHEN R.id_res IS NULL AND C.tipo_cambio = 'DELETE' THEN 'HISTORICO_ELIMINADO'
+        ELSE 'SIN_CAMBIOS'
+    END AS origen_registro
+FROM BASE_CT.dbo.Reserva_Test AS R
+FULL JOIN CambiosFiltrados AS C
+       ON R.id_res = C.id_res
+WHERE
+    R.id_res IS NOT NULL
+    OR (R.id_res IS NULL AND C.tipo_cambio = 'DELETE');
+```
 
 ### <a name="paso6">6. OPCIONAL: Incorporación de controles (Latencia y filas procesadas)</a>
 
@@ -318,7 +421,6 @@ CREATE PROCEDURE dbo.sp_RegistrarCambiosReservaTestConLogs
 AS
 BEGIN
     SET NOCOUNT ON;
-
     DECLARE 
         @inicio DATETIME2 = SYSDATETIME(),
         @fin DATETIME2,
@@ -326,18 +428,14 @@ BEGIN
         @ultima_version BIGINT,
         @nueva_version BIGINT,
         @duracion_ms BIGINT;
-
     -- Obtener versión inicial
     SELECT @ultima_version = ultima_version 
     FROM dbo.Reserva_Test_ChangeVersion;
-
     -- Nueva versión
     SET @nueva_version = CHANGE_TRACKING_CURRENT_VERSION();
-
     -- Contar filas
     SELECT @filas = COUNT(*)
     FROM CHANGETABLE(CHANGES dbo.Reserva_Test, @ultima_version) AS CT;
-
     ---------------------------------------------------------
     -- MERGE
     ---------------------------------------------------------
@@ -361,17 +459,14 @@ BEGIN
     WHEN NOT MATCHED THEN
         INSERT (id_res, tipo_cambio, fecha_cambio)
         VALUES (S.id_res, S.tipo_cambio, S.fecha_cambio);
-
     -- Actualizar versión procesada
     UPDATE dbo.Reserva_Test_ChangeVersion
     SET ultima_version = @nueva_version;
-
     ---------------------------------------------------------
     -- Log
     ---------------------------------------------------------
     SET @fin = SYSDATETIME();
     SET @duracion_ms = DATEDIFF(ms, @inicio, @fin);
-
     INSERT INTO dbo.Log_RegistrarCambiosReservaTest
     (
         fecha_inicio,
@@ -394,3 +489,9 @@ BEGIN
     );
 END;
 ```
+
+### <a name="paso7">7. ADVERTENCIAS: Particularidades a tener en cuenta</a>
+
+En este apartado haremos algunas aclaraciones o advertencias a tener en cuenta al adaptar las el código a cada tabla en particular.
+
+1. TABLA SERVICIO: Aquí es importante tener en cuenta que la tabla Servicio cuenta con dos claves, "id_res" y "numero". Teniendo en cuenta esto, se deberá adaptar la estructura de la tabla de registro de cambios, el store procedure y la vista para que consideren ambos datos, de otro modo podríamos caer en ambigüedades con los datos y por ende, en errores.
