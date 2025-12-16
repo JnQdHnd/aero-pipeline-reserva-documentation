@@ -371,15 +371,13 @@ SELECT
     R.id_operes,
     R.ID_USU2,
     -- 🔹 metadata de cambios
-    C.tipo_cambio  AS ultimo_tipo_cambio,
-    C.fecha_cambio AS update_at,
-
+    C.tipo_cambio AS ultimo_tipo_cambio,
+       ISNULL(C.fecha_cambio, '19000101') AS update_at,
     -- 🔹 soft delete
     CASE
         WHEN C.tipo_cambio = 'DELETE' THEN CAST(1 AS bit)
         ELSE CAST(0 AS bit)
     END AS is_deleted,
-
     -- 🔹 origen del registro
     CASE
         WHEN R.id_res IS NOT NULL THEN 'EXISTENTE'
