@@ -75,7 +75,7 @@ Para armar el panel utilizaremos un gráfico de tipo **Barra**, colocaremos **Es
 
 El resultado esperado es similar al siguiente:
 
-![](C:\Users\j_que\Documents\GitHub\aero-pipeline-reserva-documentation\imagenes\2025-12-16-08-35-03-image.png)
+![](https://github.com/JnQdHnd/aero-pipeline-reserva-documentation/blob/main/imagenes/2025-12-16-08-35-03-image.png)
 
 ## 3. Cantidad de datos migrados
 
@@ -243,7 +243,7 @@ b) En **PostgreSQL** nos conectaremos a la tabla de destino **vw_Reserva_con_sof
 
 Ambas tablas las conectaremos con una relación lógica de tipo exterior completo:
 
-![](C:\Users\j_que\Documents\GitHub\aero-pipeline-reserva-documentation\imagenes\2025-12-16-09-51-13-image.png)
+![](https://github.com/JnQdHnd/aero-pipeline-reserva-documentation/blob/main/imagenes/2025-12-16-09-51-13-image.png)
 
 ##### Preparación de los datos:
 
@@ -312,4 +312,4 @@ Para el armado del panel elegiremos el gráfico de tipo **Square**. Para **color
 
 El resultado esperado es similar al siguiente:
 
-![](C:\Users\j_que\Documents\GitHub\aero-pipeline-reserva-documentation\imagenes\2025-12-16-10-13-36-image.png)
+![](https://github.com/JnQdHnd/aero-pipeline-reserva-documentation/blob/main/imagenes/2025-12-16-10-13-36-image.png)
