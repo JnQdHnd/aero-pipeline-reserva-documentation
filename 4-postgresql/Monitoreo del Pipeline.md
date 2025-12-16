@@ -53,7 +53,7 @@ Para armar el panel utilizaremos la visualización **Square**, en color utilizar
 
 El resultado esperado es similar al siguiente:
 
-![](C:\Users\j_que\Documents\GitHub\aero-pipeline-reserva-documentation\imagenes\2025-12-16-08-17-55-image.png)
+![](https://github.com/JnQdHnd/aero-pipeline-reserva-documentation/blob/main/imagenes/2025-12-16-08-17-55-image.png)
 
 ## 2. Sincronizaciones de Airbyte
 
